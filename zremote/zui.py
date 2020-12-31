@@ -13,6 +13,9 @@ class zUI:
 		self.cols = 0
 		self.size = size
 		
+		self.ipaddress = '192.168.11.160'
+		self.root = '/home/pi/python/zremote'
+			
 		self.text = (255,255,255)
 		self.accent = (254,75,4)
 		self.grid = (100, 100, 100)
@@ -40,6 +43,49 @@ class zUI:
 		self.keybuffer = ''
 		self.savedcmd = ''
 		
+		self.pollstart = time.time()
+	
+		self.WaitForConnection()
+
+	def RequestGet(self, params):
+		# print("http://" + self.ipaddress + params)
+		try:
+			request = requests.get("http://" + self.ipaddress + params, timeout=5)
+		except Exception as e:
+			sys.exit(e)
+		else:
+			return request
+	
+	def WaitForConnection(self):
+		font = self.pygame.font.Font(None,90)
+		label = font.render('Waiting for connection', 1, (self.text))
+		rect = label.get_rect()
+		self.screen.blit(label,(0,0))
+		self.pygame.display.update()
+
+		connected = False
+		while not connected:
+			try:
+				request = requests.get("http://192.168.11.160/ctrl/mode?action=query")
+			except:				
+				connected = False
+				try:
+					request = requests.get("http://10.98.33.1/ctrl/mode?action=query")
+				except:				
+					connected = False
+					time.sleep(1)
+				else:
+					connected = True
+					self.ipaddress = '10.98.33.1'
+			else:
+				connected = True
+				print ('Hello')
+				self.ipaddress = '192.168.11.160'
+		
+	def FixDot(self, tofix):
+		return tofix.replace('|', '.')
+		
+		
 	def ISO(self):
 		return self.iso
 
@@ -53,7 +99,7 @@ class zUI:
 		return self.mwb
 
 	def Resolution(self):		
-		return self.movres
+		return self.movres.replace('(Low Noise)', 'LN')
 		
 	def Codec(self):		
 		return self.codec
@@ -76,40 +122,42 @@ class zUI:
 			return int(self.iso)
 		
 	def LoadCameraState(self):
-		request = requests.get("http://192.168.11.160/ctrl/get?k=iso")
+		request = self.RequestGet("/ctrl/get?k=iso")
 		request.encoding = "UTF-8"
 		state = json.loads(request.content)
 		self.iso = state['value']
 
-		request = requests.get("http://192.168.11.160/ctrl/get?k=shutter_angle")
+		request = self.RequestGet("/ctrl/get?k=shutter_angle")
 		request.encoding = "UTF-8"
 		state = json.loads(request.content)
 		self.angle = state['value'].replace(u'\xb0', '')
 
-		request = requests.get("http://192.168.11.160/ctrl/get?k=movfmt")
+		request = self.RequestGet("/ctrl/get?k=resolution")
 		request.encoding = "UTF-8"
 		state = json.loads(request.content)
-		parts = state['value'].split('P')
-		self.movres = parts[0]
-		self.movfps = parts[1]
-		request = requests.get("http://192.168.11.160/ctrl/get?k=movvfr")
+		self.movres = state['value']
+		request = self.RequestGet("/ctrl/get?k=project_fps")
+		request.encoding = "UTF-8"
+		state = json.loads(request.content)
+		self.movfps = state['value']
+		request = self.RequestGet("/ctrl/get?k=movvfr")
 		request.encoding = "UTF-8"
 		state = json.loads(request.content)
 		self.movvfr = state['value']
-		request = requests.get("http://192.168.11.160/ctrl/get?k=video_encoder")
+		request = self.RequestGet("/ctrl/get?k=video_encoder")
 		request.encoding = "UTF-8"
 		state = json.loads(request.content)
 		self.codec = state['value']
-		request = requests.get("http://192.168.11.160/ctrl/get?k=lut")
+		request = self.RequestGet("/ctrl/get?k=lut")
 		request.encoding = "UTF-8"
 		state = json.loads(request.content)
 		self.lut = state['value']
-		request = requests.get("http://192.168.11.160/ctrl/get?k=wb")
+		request = self.RequestGet("/ctrl/get?k=wb")
 		request.encoding = "UTF-8"
 		state = json.loads(request.content)
 		self.wb = state['value']
 		if self.wb == 'Manual':
-			request = requests.get("http://192.168.11.160/ctrl/get?k=mwb")
+			request = self.RequestGet("/ctrl/get?k=mwb")
 			request.encoding = "UTF-8"
 			state = json.loads(request.content)
 			self.mwb = state['value']
@@ -136,34 +184,93 @@ class zUI:
 
 	def SavedCmdSet(self, cmd):
 		self.savedcmd = cmd
-	
-	
+		
 	def SetISO(self, iso):
-		request = requests.get("http://192.168.11.160/ctrl/set?iso=" + iso)
+		request = self.RequestGet("/ctrl/set?iso=" + iso)
 	
 	def SetWB(self, wb):
-		request = requests.get("http://192.168.11.160/ctrl/set?wb=" + wb)
+		request = self.RequestGet("/ctrl/set?wb=" + wb)
+	
+	def SetAngle(self, angle):
+		if angle != 'Auto':
+			angle = angle + u'\xb0'
+		request = self.RequestGet("/ctrl/set?shutter_angle=" + angle)
 	
 	def SetmWB(self, mwb):
-		request = requests.get("http://192.168.11.160/ctrl/get?k=mwb")
+		request = self.RequestGet("/ctrl/get?k=mwb")
 		request.encoding = "UTF-8"
 		state = json.loads(request.content)
 		if int(mwb) < int(state['min']):
 			mwb = state['min']
 		if int(mwb) > int(state['max']):
 			mwb = state['max']
-		request = requests.get("http://192.168.11.160/ctrl/set?wb=Manual")
-		request = requests.get("http://192.168.11.160/ctrl/set?mwb=" + str(mwb))
+		request = self.RequestGet("/ctrl/set?wb=Manual")
+		request = self.RequestGet("/ctrl/set?mwb=" + str(mwb))
 	
-	def SetAngle(self, angle):
-		if angle != 'Auto':
-			angle = angle + u'\xb0'
-		request = requests.get("http://192.168.11.160/ctrl/set?shutter_angle=" + angle)
+	def SetResolution(self, resolution):
+		request = self.RequestGet("/ctrl/set?resolution=" + self.FixDot(resolution))
 	
+	def SetFPS(self, fps):
+		request = self.RequestGet("/ctrl/set?project_fps=" + self.FixDot(fps))
+	
+	def SetVFR(self, vfr):
+		request = self.RequestGet("/ctrl/set?movvfr=" + vfr)
+	
+	def SetLUT(self, lut):
+		request = self.RequestGet("/ctrl/set?lut=" + self.FixDot(lut))
+	
+	def SetCodec(self, codec):
+		request = self.RequestGet("/ctrl/set?video_encoder=" + self.FixDot(codec))
+	
+	def SetQuick(self, quick):
+		try:
+			filein = open(self.root + '/quick/' + quick + '.txt', 'r')
+		except:
+			fileout = open(self.root + '/quick/' + quick + '.txt', 'w')
+			fileout.write('resolution=4K\n')
+			fileout.write('video_encoder=ProRes 422\n')
+			fileout.write('project_fps=25\n')
+			fileout.write('movvfr=Off\n')
+			fileout.write('lut=Z-Log2\n')
+			fileout.write('shutter_angle=180°\n')
+			fileout.write('wb=Manual\n')
+			fileout.write('mwb=5600\n')
+			fileout.close()
+	
+		# self.SetResolution('1920x1080')
+		filein = open(self.root + '//quick/' + quick + '.txt', 'r')
+		lines = filein.readlines()
+		filein.close()
+		for line in lines:
+			request = self.RequestGet("/ctrl/set?" + line[:-1])
+			
 	def SaveRecordingImage(self, recimage):
 		self.recimage = recimage
 
+	def Poll(self):
+
+		if (int(time.time() - self.pollstart)) > 0:
+			request = self.RequestGet("/ctrl/mode?action=query")
+			state = json.loads(request.content)
+			recstate = state['msg']
+		
+			if (recstate == 'rec') and self.recording:
+				self.FixGrid(0, 3, 1, 1)
+				self.AddImage(0, 3, 'record', 1, 1, 1)
+				self.recording = False
+				self.starttime = 0
+			
+			if (recstate == 'rec_ing') and not self.recording:
+				self.FixGrid(0, 3, 1, 1)
+				self.AddImage(0, 3, 'stop', 1, 1, 1)
+				self.recording = True
+				self.starttime = time.time()
+	
+			self.pollstart = time.time()
+
 	def RecordingOn(self, row, col, name):
+		request = self.RequestGet("/ctrl/rec?action=start") 
+		
 		self.FixGrid(row, col, 1, 1)
 		self.AddImage(row, col, name, 1, 1, 1)
 		self.recording = True
@@ -171,6 +278,7 @@ class zUI:
 
 
 	def RecordingOff(self, row, col, name):
+		request = self.RequestGet("/ctrl/rec?action=stop")
 		self.FixGrid(row, col, 1, 1)
 		self.AddImage(row, col, name, 1, 1, 1)
 		self.recording = False
@@ -215,11 +323,17 @@ class zUI:
 		self.screen.blit(label,(x,y))
 
 	def AddImage(self, row, col, name, factor, rowspan, colspan):
-		image = self.pygame.image.load('./img/' + name + '.png')
+		image = self.pygame.image.load(self.root + '/img/' + name + '.png')
 		rect = image.get_rect()
 		x = col * self.cellwidth + ((self.cellwidth * colspan - rect[2]) / 2)
 		y = row * self.cellheight + ((self.cellheight * rowspan - rect[3]) / 2) * factor
 		self.screen.blit(image, (x, y))
+
+	def Wait(self):
+		# print('wait')
+		image = self.pygame.image.load(self.root + '/img/wait.png')
+		self.screen.blit(image, (0, 0))
+		self.pygame.display.update()
 
 	def TextButton(self, row, col, text, rowspan, colspan, cmd, fontsize = 48):
 		self.FixGrid(row, col, rowspan, colspan)
