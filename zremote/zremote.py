@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-import sys, os, time, subprocess, commands, pygame
+import sys, os, time, subprocess, pygame
 from pygame.locals import *
 from subprocess import *
 from zui import zUI
@@ -312,15 +312,15 @@ while 1:
         if event.type == pygame.MOUSEBUTTONDOWN:
             pos = (pygame.mouse.get_pos() [0], pygame.mouse.get_pos() [1])
             cmd = on_touch()
-            if cmd <> '':
+            if cmd != '':
             	ShowScreen(cmd)
 
         #ensure there is always a safe way to end the program if the touch screen fails
         if event.type == KEYDOWN:
             if event.key == K_ESCAPE:
                 sys.exit()
-  	if zui.Recording():
-			zui.CenteredTextButton(3, 0, zui.RunningTime(), 1, 3, '', 150)
+    if zui.Recording():
+            zui.CenteredTextButton(3, 0, zui.RunningTime(), 1, 3, '', 150)
   			
     zui.Poll()
     

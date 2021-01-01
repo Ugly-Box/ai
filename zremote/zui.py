@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-import sys, os, time, datetime, subprocess, commands, pygame, requests, json
+import sys, os, time, datetime, subprocess, pygame, requests, json
 
 class zUI:
 
@@ -70,13 +70,13 @@ class zUI:
 			except:				
 				connected = False
 				try:
-					request = requests.get("http://10.98.33.1/ctrl/mode?action=query")
+					request = requests.get("http://10.98.32.1/ctrl/mode?action=query")
 				except:				
 					connected = False
 					time.sleep(1)
 				else:
 					connected = True
-					self.ipaddress = '10.98.33.1'
+					self.ipaddress = '10.98.32.1'
 			else:
 				connected = True
 				print ('Hello')
